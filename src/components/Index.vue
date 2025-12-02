@@ -2,20 +2,48 @@
   <canvas ref="glCanvas"></canvas>
 </template>
 
-<script setup lang="ts">
+<script setup>
 import { ref, onMounted } from 'vue';
-import { WebGLRenderer } from '@/utils/WebglRender.js';
-import bgImage from '@/assets/bg.png';
+import { WebGLRenderer } from '@/utils/webglRender.js';
+import bgImg from '@/assets/bg.png';
+import bcImg from '@/assets/b.png';
 
-const glCanvas = ref<HTMLCanvasElement>();
+const glCanvas = ref(null);
 
 onMounted(() => {
-  const renderer = new WebGLRenderer(glCanvas.value!);
+  const renderer = new WebGLRenderer(glCanvas.value);
 
-  const img = new Image();
-  img.src = bgImage;
-  img.onload = () => {
-    renderer.setTexture(img);
+  const images = { bg: new Image(), bc: new Image() };
+  images.bg.src = bgImg;
+  images.bc.src = bcImg;
+
+  let loaded = 0;
+  Object.values(images).forEach((img) => {
+    img.onload = () => {
+      loaded++;
+      if (loaded === Object.keys(images).length) start();
+    };
+  });
+
+  function start() {
+    renderer.setBackground(images.bg);
+
+    renderer.addSprite({
+      x: 0.425,
+      y: 0.3,
+      w: 0.15,
+      h: 0.08,
+      img: images.bc,
+      onClick() {
+        console.log('bc clicked');
+      },
+      onEnter() {
+        console.log('bc hover');
+      },
+      onLeave() {
+        console.log('bc leave');
+      }
+    });
 
     function loop() {
       renderer.update();
@@ -23,6 +51,6 @@ onMounted(() => {
       requestAnimationFrame(loop);
     }
     loop();
-  };
+  }
 });
 </script>
