@@ -11,7 +11,7 @@ import bcImg from '@/assets/b.png';
 const glCanvas = ref(null);
 
 onMounted(() => {
-  const renderer = new WebGLRenderer(glCanvas.value);
+  const renderer = new WebGLRenderer(glCanvas.value, 1920, 1080);
 
   const images = { bg: new Image(), bc: new Image() };
   images.bg.src = bgImg;

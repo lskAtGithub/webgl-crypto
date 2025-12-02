@@ -1,15 +1,22 @@
 export class WebGLRenderer {
-  constructor(canvas) {
+  constructor(canvas, bgWidth = 1920, bgHeight = 1080) {
     this.canvas = canvas;
     this.gl = canvas.getContext('webgl');
     if (!this.gl) throw new Error('WebGL not supported');
 
     this.bgTexture = null;
-    this.bgOffset = 0; // 当前背景偏移
-    this.bgTargetOffset = 0; // 目标偏移
+    this.bgImg = null;
+    this.bgOffset = 0;
+    this.bgTargetOffset = 0;
     this.sprites = [];
     this.activeSprite = null;
     this.mouseX = 0.5;
+
+    this.BUFFER = 0.05; // 微幅缓动
+    this.bgWidth = bgWidth;
+    this.bgHeight = bgHeight;
+    this.visibleUVWidth = 1.0;
+    this.maxOffset = 0;
 
     this.initGL();
     this.resize();
@@ -36,9 +43,27 @@ export class WebGLRenderer {
       uniform sampler2D u_texture;
       uniform float u_hover;
       uniform float u_offset;
+      uniform float u_canvasWidth;
+      uniform float u_canvasHeight;
+      uniform float u_imgWidth;
+      uniform float u_imgHeight;
       void main() {
         vec2 uv = v_texCoord;
-        uv.x = clamp(uv.x + u_offset, 0.0, 1.0);
+
+        // 计算显示比例，不拉伸图片
+        float scaleX = u_canvasWidth / u_imgWidth;
+        float scaleY = u_canvasHeight / u_imgHeight;
+
+        // X轴 UV
+        float dispX = min(scaleX, 1.0);
+        uv.x = uv.x * dispX + u_offset;
+
+        // Y轴 UV
+        float dispY = min(scaleY, 1.0);
+        uv.y = uv.y * dispY;
+
+        uv = clamp(uv, 0.0, 1.0);
+
         vec4 color = texture2D(u_texture, uv);
         if(u_hover > 0.5) color.rgb *= 1.2;
         gl_FragColor = color;
@@ -61,6 +86,10 @@ export class WebGLRenderer {
     this.uTexture = gl.getUniformLocation(this.program, 'u_texture');
     this.uHover = gl.getUniformLocation(this.program, 'u_hover');
     this.uOffset = gl.getUniformLocation(this.program, 'u_offset');
+    this.uCanvasWidth = gl.getUniformLocation(this.program, 'u_canvasWidth');
+    this.uCanvasHeight = gl.getUniformLocation(this.program, 'u_canvasHeight');
+    this.uImgWidth = gl.getUniformLocation(this.program, 'u_imgWidth');
+    this.uImgHeight = gl.getUniformLocation(this.program, 'u_imgHeight');
 
     // 占位透明纹理
     const emptyTex = gl.createTexture();
@@ -87,7 +116,17 @@ export class WebGLRenderer {
   }
 
   setBackground(img) {
+    this.bgImg = img;
     this.bgTexture = this.createTexture(img);
+    this.updateUV();
+  }
+
+  updateUV() {
+    const canvas = this.canvas;
+    if (!this.bgImg) return;
+
+    const visibleUVWidth = Math.min(1, canvas.width / this.bgWidth);
+    this.maxOffset = Math.max(1 - visibleUVWidth + this.BUFFER, 0);
   }
 
   addSprite({ x, y, w, h, img, onClick, onEnter, onLeave }) {
@@ -106,9 +145,7 @@ export class WebGLRenderer {
   }
 
   update() {
-    // 背景目标偏移 (-0.05 ~ 0.05)
-    this.bgTargetOffset = (this.mouseX - 0.5) * 0.1;
-    // 缓动更新背景偏移
+    this.bgTargetOffset = (this.mouseX - 0.5) * this.maxOffset * 2;
     this.bgOffset += (this.bgTargetOffset - this.bgOffset) * 0.1;
   }
 
@@ -117,12 +154,10 @@ export class WebGLRenderer {
     gl.clearColor(0, 0, 0, 1);
     gl.clear(gl.COLOR_BUFFER_BIT);
 
-    // 背景 quad
     if (this.bgTexture) {
       this.drawQuad(this.bgTexture, 0, 0, 1, 1, 0, this.bgOffset);
     }
 
-    // sprite quad
     for (const s of this.sprites) {
       this.drawQuad(s.texture, s.x, s.y, s.w, s.h, s.hover ? 1 : 0, 0);
     }
@@ -130,20 +165,27 @@ export class WebGLRenderer {
 
   drawQuad(texture, x, y, w, h, hover, offset) {
     const gl = this.gl;
+
     const x1 = x * 2 - 1;
     const y1 = y * 2 - 1;
     const x2 = (x + w) * 2 - 1;
     const y2 = (y + h) * 2 - 1;
 
     const vertices = new Float32Array([x1, y1, 0, 0, x2, y1, 1, 0, x1, y2, 0, 1, x2, y2, 1, 1]);
+
     gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
     gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
 
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, texture);
+
     gl.uniform1i(this.uTexture, 0);
     gl.uniform1f(this.uHover, hover);
     gl.uniform1f(this.uOffset, offset);
+    gl.uniform1f(this.uCanvasWidth, this.canvas.width);
+    gl.uniform1f(this.uCanvasHeight, this.canvas.height);
+    gl.uniform1f(this.uImgWidth, this.bgWidth);
+    gl.uniform1f(this.uImgHeight, this.bgHeight);
 
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   }
@@ -159,6 +201,8 @@ export class WebGLRenderer {
     canvas.width = Math.floor(vw * dpr);
     canvas.height = Math.floor(vh * dpr);
     gl.viewport(0, 0, canvas.width, canvas.height);
+
+    this.updateUV();
   }
 
   initEvents() {
