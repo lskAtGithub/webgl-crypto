@@ -5,10 +5,11 @@ export class WebGLRenderer {
     if (!this.gl) throw new Error('WebGL not supported');
 
     this.bgTexture = null;
-    this.bgOffset = 0; // 背景水平偏移 (0~1)
+    this.bgOffset = 0; // 当前背景偏移
+    this.bgTargetOffset = 0; // 目标偏移
     this.sprites = [];
     this.activeSprite = null;
-    this.mouseX = 0.5; // 鼠标 X 位置比例
+    this.mouseX = 0.5;
 
     this.initGL();
     this.resize();
@@ -34,15 +35,12 @@ export class WebGLRenderer {
       varying vec2 v_texCoord;
       uniform sampler2D u_texture;
       uniform float u_hover;
-      uniform float u_offset; // 背景水平偏移
+      uniform float u_offset;
       void main() {
         vec2 uv = v_texCoord;
-        uv.x = uv.x + u_offset; // 背景左右偏移
-        uv.x = fract(uv.x);     // 循环 UV
+        uv.x = clamp(uv.x + u_offset, 0.0, 1.0);
         vec4 color = texture2D(u_texture, uv);
-        if(u_hover > 0.5){
-          color.rgb *= 1.2;
-        }
+        if(u_hover > 0.5) color.rgb *= 1.2;
         gl_FragColor = color;
       }
     `;
@@ -64,6 +62,7 @@ export class WebGLRenderer {
     this.uHover = gl.getUniformLocation(this.program, 'u_hover');
     this.uOffset = gl.getUniformLocation(this.program, 'u_offset');
 
+    // 占位透明纹理
     const emptyTex = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, emptyTex);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 0, 0]));
@@ -107,9 +106,10 @@ export class WebGLRenderer {
   }
 
   update() {
-    // 根据鼠标 X 控制背景偏移
-    // 偏移范围 -0.05 ~ +0.05 (可调)
-    this.bgOffset = (this.mouseX - 0.5) * 0.1;
+    // 背景目标偏移 (-0.05 ~ 0.05)
+    this.bgTargetOffset = (this.mouseX - 0.5) * 0.1;
+    // 缓动更新背景偏移
+    this.bgOffset += (this.bgTargetOffset - this.bgOffset) * 0.1;
   }
 
   render() {
