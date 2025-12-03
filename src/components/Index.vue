@@ -1,23 +1,24 @@
 <template>
-  <div class="canvas-wrapper">
-    <canvas ref="glCanvas"></canvas>
-  </div>
+  <canvas ref="glCanvas"></canvas>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, onBeforeUnmount } from 'vue';
 import { WebGLRenderer } from '@/utils/webglRender.js';
 import bgImg from '@/assets/bg.png';
 import bcImg from '@/assets/b.png';
+import smokeImg from '@/assets/b.png';
 
 const glCanvas = ref(null);
+let loopId;
 
 onMounted(() => {
   const renderer = new WebGLRenderer(glCanvas.value, 1920, 1080);
 
-  const images = { bg: new Image(), bc: new Image() };
+  const images = { bg: new Image(), bc: new Image(), smoke: new Image() };
   images.bg.src = bgImg;
   images.bc.src = bcImg;
+  images.smoke.src = smokeImg;
 
   let loaded = 0;
   Object.values(images).forEach((img) => {
@@ -29,28 +30,34 @@ onMounted(() => {
 
   function start() {
     renderer.setBackground(images.bg);
+    renderer.setSmokeTexture(images.smoke);
 
+    // 添加 sprite
     renderer.addSprite({
       id: 'bc',
-      worldX: 1400,
-      worldY: 500,
-      worldW: 300,
-      worldH: 180,
-      image: images.bc
+      worldX: 20,
+      worldY: 20,
+      worldW: 50,
+      worldH: 50,
+      image: images.bc,
+      onClick: () => console.log('bc clicked'),
+      onHover: (hover) => console.log('bc hover:', hover)
     });
 
-    function loop() {
+    window.addEventListener('mousemove', (e) => {
+      renderer.mouseX = e.clientX / window.innerWidth;
+    });
+
+    const loop = () => {
       renderer.update();
       renderer.render();
-      requestAnimationFrame(loop);
-    }
+      loopId = requestAnimationFrame(loop);
+    };
     loop();
   }
 });
-</script>
 
-<style scoped>
-.canvas-wrapper {
-  width: 1200px;
-}
-</style>
+onBeforeUnmount(() => {
+  cancelAnimationFrame(loopId);
+});
+</script>
