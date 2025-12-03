@@ -7,8 +7,6 @@ export class WebGLRenderer {
 
     this.bgTexture = null;
     this.sprites = [];
-    this.smokeParticles = [];
-    this.smokeTexture = null;
 
     this.cameraX = 0;
     this.targetCameraX = 0;
@@ -132,11 +130,6 @@ export class WebGLRenderer {
     this.sprites.push(sprite);
   }
 
-  // ✅ 确保方法挂载
-  setSmokeTexture(img) {
-    this.smokeTexture = this.createTexture(img);
-  }
-
   _newParticle(x, y, isLeft) {
     return {
       x,
@@ -149,27 +142,10 @@ export class WebGLRenderer {
     };
   }
 
-  spawnSmoke() {
-    const y = this.bgHeight - 50;
-    const leftX = 100;
-    const rightX = this.bgWidth - 200;
-    this.smokeParticles.push(this._newParticle(leftX, y, true));
-    this.smokeParticles.push(this._newParticle(rightX, y, false));
-  }
-
   update() {
     const maxMove = Math.max(0, this.bgWidth - this.viewWorldWidth);
     this.targetCameraX = this.mouseX * maxMove;
     this.cameraX += (this.targetCameraX - this.cameraX) * 0.08;
-
-    this.smokeParticles.forEach((p) => {
-      p.x += p.vx;
-      p.y -= p.vy;
-      p.alpha -= p.decay;
-    });
-    this.smokeParticles = this.smokeParticles.filter((p) => p.alpha > 0);
-
-    if (Math.random() < 0.03) this.spawnSmoke();
   }
 
   worldToNDC(x, y, w, h) {
@@ -232,11 +208,6 @@ export class WebGLRenderer {
     // sprite -> 固定在背景
     for (const s of this.sprites) {
       this.drawWorldQuad(s.texture, s.worldX, s.worldY, s.worldW, s.worldH, true, 1, !!s._hover);
-    }
-
-    // 烟雾粒子 -> 固定在背景
-    for (const p of this.smokeParticles) {
-      if (this.smokeTexture) this.drawWorldQuad(this.smokeTexture, p.x, p.y, p.size, p.size, true, p.alpha);
     }
   }
 }
