@@ -1,5 +1,7 @@
 <template>
-  <canvas ref="glCanvas"></canvas>
+  <div class="canvas-wrapper">
+    <canvas ref="glCanvas"></canvas>
+  </div>
 </template>
 
 <script setup>
@@ -29,20 +31,12 @@ onMounted(() => {
     renderer.setBackground(images.bg);
 
     renderer.addSprite({
-      x: 0.425,
-      y: 0.3,
-      w: 0.15,
-      h: 0.08,
-      img: images.bc,
-      onClick() {
-        console.log('bc clicked');
-      },
-      onEnter() {
-        console.log('bc hover');
-      },
-      onLeave() {
-        console.log('bc leave');
-      }
+      id: 'bc',
+      worldX: 1400,
+      worldY: 500,
+      worldW: 300,
+      worldH: 180,
+      image: images.bc
     });
 
     function loop() {
@@ -54,3 +48,9 @@ onMounted(() => {
   }
 });
 </script>
+
+<style scoped>
+.canvas-wrapper {
+  width: 1200px;
+}
+</style>
